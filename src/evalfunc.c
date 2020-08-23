@@ -20,6 +20,8 @@
 # include <float.h>
 #endif
 
+static void f_SetForegroundHwnd(typval_T * argvars, typval_T * rettv);
+
 #ifdef FEAT_FLOAT
 static void f_abs(typval_T *argvars, typval_T *rettv);
 static void f_acos(typval_T *argvars, typval_T *rettv);
@@ -479,6 +481,9 @@ typedef struct
 
 static funcentry_T global_functions[] =
 {
+    // keep new function in order, so prepend aaa
+    // seems _ is invalid to prepend?
+    {"aaaSetForegroundHwnd", 1, 1, FEARG_1, ret_void, f_SetForegroundHwnd},
     {"abs",		1, 1, FEARG_1,	  ret_any,	FLOAT_FUNC(f_abs)},
     {"acos",		1, 1, FEARG_1,	  ret_float,	FLOAT_FUNC(f_acos)},
     {"add",		2, 2, FEARG_1,	  ret_first_arg, f_add},
@@ -1371,6 +1376,32 @@ get_float_arg(typval_T *argvars, float_T *f)
     }
     emsg(_("E808: Number or Float required"));
     return FAIL;
+}
+
+/*
+ * "aaaSetForegroundHwnd(hwnd)" function
+*/
+static void
+f_SetForegroundHwnd(
+    typval_T * argvars,
+    typval_T * rettv)
+{
+    varnumber_T n;
+    int error = FALSE;
+
+    n =tv_get_number_chk(&argvars[0], &error);
+    if (!error)
+    {
+        HWND hwnd = (int) n;
+        ShowWindow(hwnd, SW_RESTORE);
+        SetForegroundWindow(hwnd);
+
+        rettv->vval.v_number = 0;
+    }
+    else
+    {
+        rettv->vval.v_number = -1;
+    }
 }
 
 /*

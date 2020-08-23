@@ -5091,7 +5091,7 @@ ex_buffer_all(exarg_T *eap)
      * Also close windows that are not full-width.
      */
     if (had_tab > 0)
-	goto_tabpage_tp(first_tabpage, TRUE, TRUE);
+	goto_tabpage_tp(first_tabpage, FALSE /*TRUE*/, FALSE /*TRUE*/);
     for (;;)
     {
 	tpnext = curtab->tp_next;
@@ -5119,7 +5119,7 @@ ex_buffer_all(exarg_T *eap)
 	// Without the ":tab" modifier only do the current tab page.
 	if (had_tab == 0 || tpnext == NULL)
 	    break;
-	goto_tabpage_tp(tpnext, TRUE, TRUE);
+	goto_tabpage_tp(tpnext, FALSE /*TRUE*/, FALSE /*TRUE*/);
     }
 
     /*

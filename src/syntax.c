@@ -1971,7 +1971,7 @@ syn_current_attr(
 					    cur_si->si_cont_list, &spp->sp_syn,
 					    spp->sp_flags & HL_CONTAINED))))
 			{
-			    int r;
+			    int r = 0;
 
 			    // If we already tried matching in this line, and
 			    // there isn't a match before next_match_col, skip
@@ -1987,10 +1987,150 @@ syn_current_attr(
 
 			    regmatch.rmm_ic = spp->sp_ic;
 			    regmatch.regprog = spp->sp_prog;
-			    r = syn_regexec(&regmatch,
+			    if (strcmp(spp->sp_pattern, "${FuncDefName}") == 0)
+                            {
+                                // heuristics logic to identify function def name
+                                int pCheck = current_col;
+                                int funcNameStart = -1;
+                                int funcNameEnd = -1;
+
+                                // ignore prefix spaces
+                                while (line[pCheck] == ' '
+                                       || line[pCheck] == '\t') pCheck++;
+
+                                while (line[pCheck])
+                                {
+                                    if (isalpha(line[pCheck])
+                                        || line[pCheck] == '_')
+                                    {
+                                        funcNameStart = pCheck;
+                                    }
+                                    else
+                                    {
+                                        break;
+                                    }
+                                    while (isalnum(line[pCheck])
+                                           || line[pCheck] == '_') pCheck++;
+                                    funcNameEnd = pCheck - 1;
+
+                                    if (line[pCheck] == ':' && line[pCheck+1] == ':')
+                                    {
+                                        pCheck += 2;
+                                        // destructor
+                                        if (line[pCheck] == '~')pCheck++;
+                                        continue;
+                                    }
+                                    else if (line[pCheck] == ' '
+                                             || line[pCheck] == '\t'
+                                             || line[pCheck] == '*'
+                                             || line[pCheck] == '&')
+                                    {
+                                        pCheck++;
+                                        while (line[pCheck] == ' '
+                                              || line[pCheck] == '\t'
+                                              || line[pCheck] == '&'
+                                              || line[pCheck] == '*') pCheck++;
+
+                                        if (line[pCheck] != '(')
+					{
+					    // parse past as return type.
+					    continue;
+					}
+                                    }
+
+                                    if (line[pCheck++] != '(')
+                                    {
+                                        break;
+                                    }
+
+                                    // TODO: Parse ANSI C parameters?
+                                    while(line[pCheck] == ' '
+                                          || line[pCheck] == '\t') pCheck++;
+                                    if(isalpha(line[pCheck])
+                                          || line[pCheck] == '_')
+                                    {
+                                        // find type name
+                                        while (isalnum(line[pCheck])
+                                               || line[pCheck] == ':'
+                                               || line[pCheck] == '<'
+                                               || line[pCheck] == '>') pCheck++;
+                                        if (line[pCheck] != ' '
+                                            && line[pCheck] != '\t'
+                                            && line[pCheck] != '&'
+                                            && line[pCheck] != '*') // int*
+                                        {
+                                            break;
+                                        }
+                                        pCheck++;
+                                        while (line[pCheck] == ' '
+                                               || line[pCheck] == '\t'
+                                               || line[pCheck] == '*'
+                                               || line[pCheck] == '&')pCheck++;
+                                        if (!isalpha(line[pCheck])
+                                            && line[pCheck] != '_')
+                                        {
+                                            break;
+                                        }
+                                    }
+                                    else if (line[pCheck] == ')')
+                                    {
+                                        pCheck++;
+                                    }
+                                    else if (line[pCheck] == '*'
+                                             || line[pCheck] == '&'
+                                             || line[pCheck] == '(')
+                                    {
+                                        // func(&var,...);
+                                        break;
+                                    }
+
+                                    // check significant trailing comma
+                                    {
+                                        int hasTrailComma = 0;
+
+                                        for (; line[pCheck]; pCheck++)
+                                        {
+                                            if (line[pCheck] == '/'
+                                                && line[pCheck+1] == '/')
+                                            {
+                                                break;
+                                            }
+
+                                            if (line[pCheck] == ';')
+                                            {
+                                                hasTrailComma = 1;
+                                            }
+                                            else if (line[pCheck] != ' '
+                                                     && line[pCheck] != '\t'
+                                                     && hasTrailComma == 1)
+                                            {
+                                                hasTrailComma = 0;
+                                            }
+                                        }
+
+                                        if (hasTrailComma)
+                                        {
+                                            break;
+                                        }
+
+                                        r = TRUE;
+                                        // highlight range is [funcNameStart, funcNameEnd)
+                                        regmatch.startpos[0].lnum = current_lnum;
+                                        regmatch.startpos[0].col = funcNameStart;
+                                        regmatch.endpos[0].lnum = current_lnum;
+                                        regmatch.endpos[0].col = funcNameEnd+1;
+
+                                        break;
+                                    }
+                                }
+                            }
+                            else
+                            {
+				r = syn_regexec(&regmatch,
 					     current_lnum,
 					     (colnr_T)lc_col,
 					     IF_SYN_TIME(&spp->sp_time));
+			    }
 			    spp->sp_prog = regmatch.regprog;
 			    if (!r)
 			    {
